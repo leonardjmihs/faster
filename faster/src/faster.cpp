@@ -338,7 +338,7 @@ void Faster::replan(vec_Vecf<3>& JPS_safe_out, vec_Vecf<3>& JPS_whole_out, vec_E
     return;
   }
 
-  std::cout << bold << on_red << "************IN REPLAN CB*********" << reset << std::endl;
+  // std::cout << bold << on_red << "************IN REPLAN CB*********" << reset << std::endl;
 
   //////////////////////////////////////////////////////////////////////////
   ///////////////////////// Select state A /////////////////////////////////
@@ -357,8 +357,8 @@ void Faster::replan(vec_Vecf<3>& JPS_safe_out, vec_Vecf<3>& JPS_whole_out, vec_E
 
   bool solvedjps = false;
   MyTimer timer_jps(true);
-
   vec_Vecf<3> JPSk = jps_manager_.solveJPS3D(A.pos, G.pos, &solvedjps, 1);
+  std::cout << bold << green << "JPS time (ms): " << timer_jps.ElapsedMs() << reset << std::endl;
 
   if (solvedjps == false)
   {
@@ -386,7 +386,7 @@ void Faster::replan(vec_Vecf<3>& JPS_safe_out, vec_Vecf<3>& JPS_whole_out, vec_E
   //////////////////////////////////////////////////////////////////////////
   ///////////////// Solve with GUROBI Whole trajectory /////////////////////
   //////////////////////////////////////////////////////////////////////////
-
+  MyTimer timer_safe_whole(true);
   if (par_.use_faster == true)
   {
     vec_Vecf<3> JPS_whole = JPS_in;
@@ -416,6 +416,7 @@ void Faster::replan(vec_Vecf<3>& JPS_safe_out, vec_Vecf<3>& JPS_whole_out, vec_E
     // Solve with Gurobi
     MyTimer whole_gurobi_t(true);
     bool solved_whole = sg_whole_.genNewTraj();
+    std::cout << white << "Whole Gurobi time (ms): " << whole_gurobi_t.ElapsedMs() << std::endl;
 
     if (solved_whole == false)
     {
@@ -455,13 +456,13 @@ void Faster::replan(vec_Vecf<3>& JPS_safe_out, vec_Vecf<3>& JPS_whole_out, vec_E
   bool needToComputeSafePath;
   int indexH = findIndexH(needToComputeSafePath);
 
-  std::cout << "NeedToComputeSafePath=" << needToComputeSafePath << std::endl;
+  // std::cout << "NeedToComputeSafePath=" << needToComputeSafePath << std::endl;
 
   if (par_.use_faster == false)
   {
     needToComputeSafePath = true;
   }
-
+  needToComputeSafePath=true;
   if (needToComputeSafePath == false)
   {
     k_safe = indexH;
@@ -520,11 +521,15 @@ void Faster::replan(vec_Vecf<3>& JPS_safe_out, vec_Vecf<3>& JPS_whole_out, vec_E
 
     sg_safe_.setX0(x0_safe);
     sg_safe_.setXf(M_);  // only used to compute dt
-    sg_safe_.setPolytopes(l_constraints_safe_);
-    sg_safe_.setForceFinalConstraint(shouldForceFinalConstraint_for_Safe);
+    // sg_safe_.setXf(G);  // only used to compute dt
+    // sg_safe_.setPolytopes(l_constraints_safe_);
+    sg_safe_.setPolytopes(l_constraints_whole_);
+    // sg_safe_.setForceFinalConstraint(shouldForceFinalConstraint_for_Safe);
+    sg_safe_.setForceFinalConstraint(true);
     MyTimer safe_gurobi_t(true);
-    std::cout << "Calling Gurobi" << std::endl;
+    // std::cout << "Calling Gurobi" << std::endl;
     bool solved_safe = sg_safe_.genNewTraj();
+    std::cout << red << "Safe Gurobi time (ms): " << safe_gurobi_t.ElapsedMs() << reset << std::endl;
 
     if (solved_safe == false)
     {
@@ -536,6 +541,7 @@ void Faster::replan(vec_Vecf<3>& JPS_safe_out, vec_Vecf<3>& JPS_whole_out, vec_E
     sg_safe_.fillX();
     X_safe_out = sg_safe_.X_temp_;
   }
+  std::cout << bold << white << "Safe + Whole total time (ms): " << timer_safe_whole.ElapsedMs() << reset << std::endl;
 
   /*  std::cout << "This is the SAFE TRAJECTORY" << std::endl;
     printStateVector(sg_safe_.X_temp_);

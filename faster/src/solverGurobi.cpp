@@ -50,6 +50,8 @@ SolverGurobi::SolverGurobi()
   // Model
   /*  env = new GRBEnv();
     m = GRBModel(*env);*/
+  (*env).set(GRB_IntParam_OutputFlag, 0);
+  (*env).set(GRB_IntParam_MIPFocus, 0);
   m.set(GRB_StringAttr_ModelName, "planning");
 
   cb_ = mycallback();

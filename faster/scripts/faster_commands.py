@@ -29,9 +29,8 @@ class Faster_Commands:
         self.pubGoal = rospy.Publisher('goal', Goal, queue_size=1)
         self.pubMode = rospy.Publisher("faster/mode",Mode,queue_size=1,latch=True) #TODO Namespace
         self.pubClickedPoint = rospy.Publisher("/move_base_simple/goal",PoseStamped,queue_size=1,latch=True)
-
         self.is_ground_robot=rospy.get_param('~is_ground_robot', False);
-
+        self.position = 1
         print("self.is_ground_robot=", self.is_ground_robot)
 
         self.alt_taken_off = 1; #Altitude when hovering after taking off
@@ -39,22 +38,56 @@ class Faster_Commands:
         self.initialized=False;
 
     #In rospy, the callbacks are all of them in separate threads
+    def norm2(self, a, b):
+        norm = 0
+        for (ai, bi) in zip(a,b):
+            norm = norm + (ai-bi)**2
+        return math.sqrt(norm)
+
     def stateCB(self, data):
         self.pose.position.x = data.pos.x
         self.pose.position.y = data.pos.y
         self.pose.position.z = data.pos.z
         self.pose.orientation = data.quat
-
+        goal = [14,0]
+        distance2origin = self.norm2([data.pos.x, data.pos.y], [0,0])
+        distance2goal = self.norm2([data.pos.x, data.pos.y], goal)
         if(self.initialized==False):
             self.pubFirstGoal()
             self.initialized=True
+        if (self.position):
+            if (distance2origin >=0.5):
+                msg = PoseStamped()
+                msg.pose.position.x=0
+                msg.pose.position.y=0
+                msg.pose.position.z=1.0
+                msg.header.frame_id="world"
+                msg.header.stamp = rospy.get_rostime()
+                self.pubClickedPoint.publish(msg)
+                print("publishing origin")
+            else:
+                self.position = 0
+
+        else:
+            if (distance2goal >= 0.5):
+                msg = PoseStamped()
+                msg.pose.position.x= goal[0]
+                msg.pose.position.y= goal[1]
+                msg.pose.position.z=1.0
+                msg.header.frame_id="world"
+                msg.header.stamp = rospy.get_rostime()
+                self.pubClickedPoint.publish(msg)
+                print("publishing goal")
+            else:
+                self.position = 1
+         
+            
 
     #Called when buttom pressed in the interface
     def srvCB(self,req):
         if(self.initialized==False):
             print "Not initialized yet"
             return
-
         if req.mode == req.START and self.mode.mode==self.mode.ON_GROUND:
             print "Taking off"
             self.takeOff()
